@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/four-bytes/four-local-bus/internal/discovery"
 	"github.com/four-bytes/four-local-bus/internal/router"
@@ -39,6 +40,16 @@ func main() {
 	}
 
 	fmt.Printf("{\"port\":%d}\n", port)
+
+	// Startup idle timer — kill the bus if no subscriber ever connects.
+	// Prevents orphan processes when the bus is started but unused.
+	go func() {
+		time.Sleep(30 * time.Second)
+		if !srv.HasSubscribers() {
+			fmt.Println("four-local-bus: no subscribers after 30s, shutting down")
+			os.Exit(0)
+		}
+	}()
 
 	// Graceful shutdown on SIGINT/SIGTERM or idle timeout
 	sigCh := make(chan os.Signal, 1)

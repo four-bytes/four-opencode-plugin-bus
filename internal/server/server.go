@@ -40,6 +40,12 @@ func New(r *router.Router) *Server {
 	}
 }
 
+// HasSubscribers reports whether any client is currently subscribed.
+// Used by the startup idle timer to detect orphan bus processes.
+func (s *Server) HasSubscribers() bool {
+	return s.router.SubscriberCount() > 0
+}
+
 // resetIdleTimer cancels the pending idle shutdown timer.
 // Called when a subscriber connects (new subscriber = bus is in use).
 func (s *Server) resetIdleTimer() {
