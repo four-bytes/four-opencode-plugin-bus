@@ -48,9 +48,9 @@ func main() {
 	// Startup idle timer — kill the bus if no subscriber ever connects.
 	// Prevents orphan processes when the bus is started but unused.
 	go func() {
-		time.Sleep(30 * time.Second)
+		time.Sleep(5 * time.Minute)
 		if !srv.HasSubscribers() {
-			fmt.Println("four-local-bus: no subscribers after 30s, shutting down")
+			fmt.Println("four-local-bus: no subscribers after 5m, shutting down")
 			sigCh <- syscall.SIGTERM // trigger graceful shutdown via main select
 		}
 	}()
