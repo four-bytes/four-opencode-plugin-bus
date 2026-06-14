@@ -49,7 +49,7 @@ func main() {
 	// Prevents orphan processes when the bus is started but unused.
 	go func() {
 		time.Sleep(5 * time.Minute)
-		if !srv.HasSubscribers() {
+		if !srv.HasEverHadSubscriber() {
 			fmt.Println("four-local-bus: no subscribers after 5m, shutting down")
 			sigCh <- syscall.SIGTERM // trigger graceful shutdown via main select
 		}

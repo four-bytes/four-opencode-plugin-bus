@@ -22,8 +22,10 @@ var upgrader = websocket.Upgrader{
 
 // Server wraps the HTTP+WebSocket endpoints for the plugin bus.
 type Server struct {
-	router    *router.Router
-	startTime time.Time
+	router             *router.Router
+	startTime          time.Time
+	everHadSubscriber  bool
+	subscriberMu       sync.Mutex
 
 	idleTimer *time.Timer
 	idleMu    sync.Mutex
@@ -44,6 +46,25 @@ func New(r *router.Router) *Server {
 // Used by the startup idle timer to detect orphan bus processes.
 func (s *Server) HasSubscribers() bool {
 	return s.router.SubscriberCount() > 0
+}
+
+// markEverHadSubscriber is called whenever a new subscription succeeds.
+// It is a sticky flag — once set, the startup idle timer will not fire,
+// even if every subscriber later disconnects (the 30s idle timer takes over).
+func (s *Server) markEverHadSubscriber() {
+	s.subscriberMu.Lock()
+	defer s.subscriberMu.Unlock()
+	s.everHadSubscriber = true
+}
+
+// HasEverHadSubscriber reports whether ANY subscriber has ever connected
+// to this server. Used by the startup idle timer — point-in-time
+// HasSubscribers() is racy because subscribers can briefly be zero
+// (e.g. between a disconnect and the 30s idle timer firing).
+func (s *Server) HasEverHadSubscriber() bool {
+	s.subscriberMu.Lock()
+	defer s.subscriberMu.Unlock()
+	return s.everHadSubscriber
 }
 
 // resetIdleTimer cancels the pending idle shutdown timer.
@@ -162,6 +183,7 @@ func (s *Server) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 	for _, pattern := range patterns {
 		s.router.Subscribe(pattern, conn)
 	}
+	s.markEverHadSubscriber() // sticky: cancels the 5m startup idle timer
 	s.resetIdleTimer()
 
 	// Read loop: bidirectional — incoming messages are published to the bus
@@ -194,6 +216,7 @@ func (s *Server) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 						s.router.Subscribe(pattern, conn)
 					}
 				}
+				s.markEverHadSubscriber() // also sticky on in-loop resubscribe
 				s.resetIdleTimer()
 				continue
 			}
