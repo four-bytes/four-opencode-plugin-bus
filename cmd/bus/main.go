@@ -41,19 +41,19 @@ func main() {
 
 	fmt.Printf("{\"port\":%d}\n", port)
 
+	// Graceful shutdown on SIGINT/SIGTERM or idle timeout
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
 	// Startup idle timer — kill the bus if no subscriber ever connects.
 	// Prevents orphan processes when the bus is started but unused.
 	go func() {
 		time.Sleep(30 * time.Second)
 		if !srv.HasSubscribers() {
 			fmt.Println("four-local-bus: no subscribers after 30s, shutting down")
-			os.Exit(0)
+			sigCh <- syscall.SIGTERM // trigger graceful shutdown via main select
 		}
 	}()
-
-	// Graceful shutdown on SIGINT/SIGTERM or idle timeout
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 	select {
 	case <-sigCh:
