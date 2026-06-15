@@ -183,7 +183,9 @@ func (s *Server) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 	for _, pattern := range patterns {
 		s.router.Subscribe(pattern, conn)
 	}
-	s.markEverHadSubscriber() // sticky: cancels the 5m startup idle timer
+	if len(patterns) > 0 {
+		s.markEverHadSubscriber() // sticky: cancels the 5m startup idle timer
+	}
 	s.resetIdleTimer()
 
 	// Read loop: bidirectional — incoming messages are published to the bus
